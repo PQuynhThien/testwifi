@@ -1,67 +1,266 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
-    <title>Game Online Đơn Giản</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ping Monitor Pro</title>
+    <link id="favicon" rel="icon" type="image/x-icon" href="https://www.google.com/favicon.ico">
     <style>
-        canvas { border: 2px solid black; background: #f0f0f0; }
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        :root {
+            --bg: #020617;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text: #f8fafc;
+            --good: #10b981;
+            --mid: #f59e0b;
+            --bad: #ef4444;
+            --off: #64748b;
+            --accent: #3b82f6;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            min-height: 100vh; background-color: var(--bg); color: var(--text); margin: 0;
+            background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            padding: 2rem;
+            border-radius: 32px;
+            text-align: center;
+            width: 350px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s ease;
+        }
+
+        .label { color: #94a3b8; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 3px; margin-bottom: 0.5rem; font-weight: 600; }
+        .ms-container { display: flex; align-items: baseline; justify-content: center; margin: 10px 0; }
+        .ms { font-size: 4.5rem; font-weight: 800; line-height: 1; letter-spacing: -2px; }
+        .unit { font-size: 1.2rem; margin-left: 5px; opacity: 0.5; font-weight: 400; }
+
+        .chart-container {
+            width: 100%;
+            height: 80px;
+            margin-top: 20px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        #ping-chart { width: 100%; height: 100%; display: block; }
+
+        .status-desc { 
+            margin-top: 1rem; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;
+            padding: 4px 12px; border-radius: 100px; display: inline-block;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .good { color: var(--good); border-color: rgba(16, 185, 129, 0.3); }
+        .mid { color: var(--mid); border-color: rgba(245, 158, 11, 0.3); }
+        .bad { color: var(--bad); border-color: rgba(239, 68, 68, 0.3); }
+        .off { color: var(--off); border-color: rgba(100, 116, 139, 0.3); }
+
+        .controls { display: flex; gap: 10px; margin-top: 20px; }
+        button {
+            padding: 12px 20px; font-size: 0.85rem; font-weight: 600; color: white;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none; border-radius: 14px; cursor: pointer; transition: 0.3s;
+            box-shadow: 0 8px 15px -5px rgba(37, 99, 235, 0.4);
+            display: flex; align-items: center; gap: 6px;
+        }
+        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
+
+        #pip-canvas { display: none; }
+        video { width: 0; height: 0; position: absolute; opacity: 0; }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+<div id="main-card" class="card off">
+    <div class="label">Live Latency</div>
+    <div class="ms-container">
+        <span id="main-ping" class="ms">--</span>
+        <span class="unit">ms</span>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="ping-chart"></canvas>
+    </div>
+
+    <div id="main-status" class="status-desc">ĐANG KẾT NỐI</div>
+</div>
+
+<div class="controls">
+    <button id="btn-pip">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h12a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+        Cửa sổ nổi (PiP)
+    </button>
+</div>
+
+<canvas id="pip-canvas" width="160" height="160"></canvas>
+<video id="pip-video" autoplay muted playsinline></video>
+
+<script>
+    const mainPing = document.getElementById('main-ping');
+    const mainStatus = document.getElementById('main-status');
+    const mainCard = document.getElementById('main-card');
+    const chartCanvas = document.getElementById('ping-chart');
+    const cctx = chartCanvas.getContext('2d');
+    const pipCanvas = document.getElementById('pip-canvas');
+    const pctx = pipCanvas.getContext('2d');
+    const video = document.getElementById('pip-video');
+    const btnPip = document.getElementById('btn-pip');
+    const favicon = document.getElementById('favicon');
+
+    let pingHistory = new Array(40).fill(0);
+    let currentVal = "--";
+    let currentColor = "#64748b";
+
+    function resizeChart() {
+        chartCanvas.width = chartCanvas.offsetWidth;
+        chartCanvas.height = chartCanvas.offsetHeight;
+    }
+    window.addEventListener('resize', resizeChart);
+    resizeChart();
+
+    function drawChart() {
+        cctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+        const maxPing = Math.max(...pingHistory, 300);
+        const step = chartCanvas.width / (pingHistory.length - 1);
         
-        let players = {};
-
-        // Nhận danh sách người chơi từ server
-        socket.on('currentPlayers', (serverPlayers) => {
-            players = serverPlayers;
-        });
-
-        // Cập nhật khi có người khác di chuyển
-        socket.on('playerMoved', (data) => {
-            if (players[data.id]) {
-                players[data.id].x = data.x;
-                players[data.id].y = data.y;
-            }
-        });
-
-        // Xóa người chơi khi họ thoát
-        socket.on('playerDisconnected', (id) => {
-            delete players[id];
-        });
-
-        // Điều khiển nhân vật bằng chuột
-        canvas.addEventListener('mousemove', (event) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = event.clientX - rect.left;
-            const mouseY = event.clientY - rect.top;
-
-            if (players[socket.id]) {
-                players[socket.id].x = mouseX;
-                players[socket.id].y = mouseY;
-                socket.emit('playerMovement', { x: mouseX, y: mouseY });
-            }
-        });
-
-        // Vòng lặp vẽ game (Render loop)
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height); // Xóa màn hình cũ
-            
-            for (let id in players) {
-                const p = players[id];
-                ctx.fillStyle = p.color;
-                ctx.fillRect(p.x - 25, p.y - 25, 50, 50); // Vẽ hình vuông nhân vật
-                ctx.strokeRect(p.x - 25, p.y - 25, 50, 50);
-            }
-            requestAnimationFrame(draw);
+        cctx.beginPath();
+        cctx.moveTo(0, chartCanvas.height);
+        for (let i = 0; i < pingHistory.length; i++) {
+            const x = i * step;
+            const y = chartCanvas.height - (pingHistory[i] / maxPing * chartCanvas.height * 0.8);
+            i === 0 ? cctx.moveTo(x, y) : cctx.lineTo(x, y);
         }
-        draw();
-    </script>
+
+        cctx.strokeStyle = currentColor;
+        cctx.lineWidth = 2;
+        cctx.stroke();
+
+        const grad = cctx.createLinearGradient(0, 0, 0, chartCanvas.height);
+        grad.addColorStop(0, currentColor + "44");
+        grad.addColorStop(1, "transparent");
+        cctx.lineTo(chartCanvas.width, chartCanvas.height);
+        cctx.lineTo(0, chartCanvas.height);
+        cctx.fillStyle = grad;
+        cctx.fill();
+    }
+
+    function updateFavicon(color) {
+        const favCanvas = document.createElement('canvas');
+        favCanvas.width = 32; favCanvas.height = 32;
+        const fctx = favCanvas.getContext('2d');
+        fctx.beginPath();
+        fctx.arc(16, 16, 12, 0, 2 * Math.PI);
+        fctx.fillStyle = color;
+        fctx.fill();
+        favicon.href = favCanvas.toDataURL('image/png');
+    }
+
+    function drawPiP() {
+        pctx.fillStyle = "#0f172a";
+        pctx.fillRect(0, 0, pipCanvas.width, pipCanvas.height);
+        pctx.beginPath();
+        pctx.arc(80, 80, 70, 0, 2 * Math.PI);
+        pctx.strokeStyle = "rgba(255,255,255,0.05)";
+        pctx.lineWidth = 8;
+        pctx.stroke();
+
+        pctx.textAlign = "center";
+        pctx.textBaseline = "middle";
+        pctx.fillStyle = currentColor;
+        
+        if(currentVal === "OFF" || currentVal === "--") {
+            pctx.font = "bold 30px system-ui";
+            pctx.fillText(currentVal, 80, 80);
+        } else {
+            pctx.font = "bold 60px system-ui";
+            pctx.fillText(currentVal, 80, 75);
+            pctx.font = "bold 18px system-ui";
+            pctx.fillStyle = "rgba(255,255,255,0.4)";
+            pctx.fillText("ms", 80, 115);
+        }
+
+        pctx.beginPath();
+        pctx.arc(80, 80, 70, -0.5 * Math.PI, 1.5 * Math.PI);
+        pctx.strokeStyle = currentColor;
+        pctx.lineWidth = 4;
+        pctx.stroke();
+    }
+
+    function updateUI(val, st, cl, co) {
+        currentVal = val;
+        currentColor = co;
+        
+        pingHistory.push(typeof val === 'number' ? val : 0);
+        pingHistory.shift();
+
+        mainPing.innerText = val;
+        mainStatus.innerText = st;
+        mainCard.className = "card " + cl;
+        
+        // KHÔI PHỤC TITLE TẠI ĐÂY
+        document.title = (val === "OFF") ? "Offline ❌" : `${val}ms - ${st}`;
+        
+        updateFavicon(co);
+        drawChart();
+        drawPiP();
+    }
+
+    async function checkNetwork() {
+        if (!navigator.onLine) {
+            updateUI("OFF", "NGOẠI TUYẾN", "off", "#64748b");
+            return;
+        }
+        const start = Date.now();
+        const img = new Image();
+        let done = false;
+
+        const timeout = setTimeout(() => {
+            if(!done) { done = true; updateUI("OFF", "TIMEOUT", "off", "#64748b"); }
+        }, 2000);
+
+        img.onload = () => {
+            if(done) return;
+            done = true; clearTimeout(timeout);
+            const ping = Date.now() - start;
+            let st, cl, co;
+            if (ping < 80) { st = ""; cl = "good"; co = "#10b981"; }
+            else if (ping < 200) { st = ""; cl = "mid"; co = "#f59e0b"; }
+            else { st = "CHẬM"; cl = "bad"; co = "#ef4444"; }
+            updateUI(ping, st, cl, co);
+        };
+        img.onerror = () => {
+            if(done) return;
+            done = true; clearTimeout(timeout);
+            updateUI("ERR", "LỖI", "off", "#64748b");
+        };
+        img.src = "https://www.google.com/favicon.ico?d=" + Date.now();
+    }
+
+    btnPip.addEventListener('click', async () => {
+        try {
+            if (document.pictureInPictureElement) {
+                await document.exitPictureInPicture();
+            } else {
+                video.srcObject = pipCanvas.captureStream(30); 
+                await video.play();
+                await video.requestPictureInPicture();
+            }
+        } catch (e) { alert("Hãy click lại nút để kích hoạt PiP."); }
+    });
+
+    setInterval(checkNetwork, 1000);
+    window.addEventListener('online', checkNetwork);
+    window.addEventListener('offline', () => updateUI("OFF", "NGOẠI TUYẾN", "off", "#64748b"));
+    checkNetwork();
+</script>
+
 </body>
 </html>

@@ -3,264 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ping Monitor Pro</title>
-    <link id="favicon" rel="icon" type="image/x-icon" href="https://www.google.com/favicon.ico">
+    <title>WebM to MP3 Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <style>
         :root {
-            --bg: #020617;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --text: #f8fafc;
-            --good: #10b981;
-            --mid: #f59e0b;
-            --bad: #ef4444;
-            --off: #64748b;
-            --accent: #3b82f6;
+            --primary: #4f46e5;
+            --bg: #f8fafc;
         }
-
         body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            min-height: 100vh; background-color: var(--bg); color: var(--text); margin: 0;
-            background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0);
-            background-size: 40px 40px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; margin: 0;
         }
-
         .card {
-            background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            padding: 2rem;
-            border-radius: 32px;
-            text-align: center;
-            width: 350px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.4s ease;
+            background: white; padding: 2rem; border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%; max-width: 400px; text-align: center;
         }
-
-        .label { color: #94a3b8; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 3px; margin-bottom: 0.5rem; font-weight: 600; }
-        .ms-container { display: flex; align-items: baseline; justify-content: center; margin: 10px 0; }
-        .ms { font-size: 4.5rem; font-weight: 800; line-height: 1; letter-spacing: -2px; }
-        .unit { font-size: 1.2rem; margin-left: 5px; opacity: 0.5; font-weight: 400; }
-
-        .chart-container {
-            width: 100%;
-            height: 80px;
-            margin-top: 20px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 16px;
-            overflow: hidden;
+        h2 { color: #1e293b; margin-bottom: 1.5rem; }
+        .upload-area {
+            border: 2px dashed #cbd5e1; padding: 2rem;
+            border-radius: 0.5rem; cursor: pointer; transition: 0.3s;
+            margin-bottom: 1.5rem; position: relative;
         }
-        #ping-chart { width: 100%; height: 100%; display: block; }
-
-        .status-desc { 
-            margin-top: 1rem; font-weight: 700; font-size: 0.8rem; text-transform: uppercase;
-            padding: 4px 12px; border-radius: 100px; display: inline-block;
-            background: rgba(255,255,255,0.05);
+        .upload-area:hover { border-color: var(--primary); background: #f5f3ff; }
+        input[type="file"] {
+            position: absolute; width: 100%; height: 100%;
+            top: 0; left: 0; opacity: 0; cursor: pointer;
         }
-
-        .good { color: var(--good); border-color: rgba(16, 185, 129, 0.3); }
-        .mid { color: var(--mid); border-color: rgba(245, 158, 11, 0.3); }
-        .bad { color: var(--bad); border-color: rgba(239, 68, 68, 0.3); }
-        .off { color: var(--off); border-color: rgba(100, 116, 139, 0.3); }
-
-        .controls { display: flex; gap: 10px; margin-top: 20px; }
         button {
-            padding: 12px 20px; font-size: 0.85rem; font-weight: 600; color: white;
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            border: none; border-radius: 14px; cursor: pointer; transition: 0.3s;
-            box-shadow: 0 8px 15px -5px rgba(37, 99, 235, 0.4);
-            display: flex; align-items: center; gap: 6px;
+            background: var(--primary); color: white; border: none;
+            padding: 0.8rem 1.5rem; border-radius: 0.5rem;
+            font-weight: bold; cursor: pointer; width: 100%;
+            transition: 0.3s; opacity: 0.6;
         }
-        button:hover { transform: translateY(-2px); filter: brightness(1.1); }
-
-        #pip-canvas { display: none; }
-        video { width: 0; height: 0; position: absolute; opacity: 0; }
+        button:not(:disabled) { opacity: 1; }
+        button:hover:not(:disabled) { background: #4338ca; }
+        #status { font-size: 0.9rem; margin-top: 1rem; color: #64748b; }
+        .progress-bar {
+            height: 6px; width: 0%; background: var(--primary);
+            border-radius: 10px; margin-top: 10px; transition: 0.3s;
+        }
+        #downloadBtn {
+            display: none; margin-top: 1rem; text-decoration: none;
+            color: #059669; font-weight: bold; border: 1px solid #059669;
+            padding: 0.5rem; border-radius: 5px;
+        }
     </style>
 </head>
 <body>
 
-<div id="main-card" class="card off">
-    <div class="label">Live Latency</div>
-    <div class="ms-container">
-        <span id="main-ping" class="ms">--</span>
-        <span class="unit">ms</span>
-    </div>
+<div class="card">
+    <h2><i class="fas fa-music"></i> WebM sang MP3</h2>
     
-    <div class="chart-container">
-        <canvas id="ping-chart"></canvas>
+    <div class="upload-area">
+        <i class="fas fa-cloud-upload-alt fa-3x" style="color: var(--primary)"></i>
+        <p id="file-name">Nhấn để chọn file WebM</p>
+        <input type="file" id="uploader" accept=".webm">
     </div>
 
-    <div id="main-status" class="status-desc">ĐANG KẾT NỐI</div>
+    <button id="convertBtn" disabled>Đang tải thư viện...</button>
+    
+    <div id="status">Vui lòng chờ...</div>
+    <div class="progress-bar" id="progress"></div>
+    <a id="downloadBtn" href="#"><i class="fas fa-download"></i> Tải xuống MP3</a>
 </div>
 
-<div class="controls">
-    <button id="btn-pip">
-        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h12a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-        Cửa sổ nổi (PiP)
-    </button>
-</div>
-
-<canvas id="pip-canvas" width="160" height="160"></canvas>
-<video id="pip-video" autoplay muted playsinline></video>
-
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 <script>
-    const mainPing = document.getElementById('main-ping');
-    const mainStatus = document.getElementById('main-status');
-    const mainCard = document.getElementById('main-card');
-    const chartCanvas = document.getElementById('ping-chart');
-    const cctx = chartCanvas.getContext('2d');
-    const pipCanvas = document.getElementById('pip-canvas');
-    const pctx = pipCanvas.getContext('2d');
-    const video = document.getElementById('pip-video');
-    const btnPip = document.getElementById('btn-pip');
-    const favicon = document.getElementById('favicon');
-
-    let pingHistory = new Array(40).fill(0);
-    let currentVal = "--";
-    let currentColor = "#64748b";
-
-    function resizeChart() {
-        chartCanvas.width = chartCanvas.offsetWidth;
-        chartCanvas.height = chartCanvas.offsetHeight;
-    }
-    window.addEventListener('resize', resizeChart);
-    resizeChart();
-
-    function drawChart() {
-        cctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
-        const maxPing = Math.max(...pingHistory, 300);
-        const step = chartCanvas.width / (pingHistory.length - 1);
-        
-        cctx.beginPath();
-        cctx.moveTo(0, chartCanvas.height);
-        for (let i = 0; i < pingHistory.length; i++) {
-            const x = i * step;
-            const y = chartCanvas.height - (pingHistory[i] / maxPing * chartCanvas.height * 0.8);
-            i === 0 ? cctx.moveTo(x, y) : cctx.lineTo(x, y);
-        }
-
-        cctx.strokeStyle = currentColor;
-        cctx.lineWidth = 2;
-        cctx.stroke();
-
-        const grad = cctx.createLinearGradient(0, 0, 0, chartCanvas.height);
-        grad.addColorStop(0, currentColor + "44");
-        grad.addColorStop(1, "transparent");
-        cctx.lineTo(chartCanvas.width, chartCanvas.height);
-        cctx.lineTo(0, chartCanvas.height);
-        cctx.fillStyle = grad;
-        cctx.fill();
-    }
-
-    function updateFavicon(color) {
-        const favCanvas = document.createElement('canvas');
-        favCanvas.width = 32; favCanvas.height = 32;
-        const fctx = favCanvas.getContext('2d');
-        fctx.beginPath();
-        fctx.arc(16, 16, 12, 0, 2 * Math.PI);
-        fctx.fillStyle = color;
-        fctx.fill();
-        favicon.href = favCanvas.toDataURL('image/png');
-    }
-
-    function drawPiP() {
-        pctx.fillStyle = "#0f172a";
-        pctx.fillRect(0, 0, pipCanvas.width, pipCanvas.height);
-        pctx.beginPath();
-        pctx.arc(80, 80, 70, 0, 2 * Math.PI);
-        pctx.strokeStyle = "rgba(255,255,255,0.05)";
-        pctx.lineWidth = 8;
-        pctx.stroke();
-
-        pctx.textAlign = "center";
-        pctx.textBaseline = "middle";
-        pctx.fillStyle = currentColor;
-        
-        if(currentVal === "OFF" || currentVal === "--") {
-            pctx.font = "bold 30px system-ui";
-            pctx.fillText(currentVal, 80, 80);
-        } else {
-            pctx.font = "bold 60px system-ui";
-            pctx.fillText(currentVal, 80, 75);
-            pctx.font = "bold 18px system-ui";
-            pctx.fillStyle = "rgba(255,255,255,0.4)";
-            pctx.fillText("ms", 80, 115);
-        }
-
-        pctx.beginPath();
-        pctx.arc(80, 80, 70, -0.5 * Math.PI, 1.5 * Math.PI);
-        pctx.strokeStyle = currentColor;
-        pctx.lineWidth = 4;
-        pctx.stroke();
-    }
-
-    function updateUI(val, st, cl, co) {
-        currentVal = val;
-        currentColor = co;
-        
-        pingHistory.push(typeof val === 'number' ? val : 0);
-        pingHistory.shift();
-
-        mainPing.innerText = val;
-        mainStatus.innerText = st;
-        mainCard.className = "card " + cl;
-        
-        // KHÔI PHỤC TITLE TẠI ĐÂY
-        document.title = (val === "OFF") ? "Offline ❌" : `${val}ms - ${st}`;
-        
-        updateFavicon(co);
-        drawChart();
-        drawPiP();
-    }
-
-    async function checkNetwork() {
-        if (!navigator.onLine) {
-            updateUI("OFF", "NGOẠI TUYẾN", "off", "#64748b");
-            return;
-        }
-        const start = Date.now();
-        const img = new Image();
-        let done = false;
-
-        const timeout = setTimeout(() => {
-            if(!done) { done = true; updateUI("OFF", "TIMEOUT", "off", "#64748b"); }
-        }, 2000);
-
-        img.onload = () => {
-            if(done) return;
-            done = true; clearTimeout(timeout);
-            const ping = Date.now() - start;
-            let st, cl, co;
-            if (ping < 80) { st = ""; cl = "good"; co = "#10b981"; }
-            else if (ping < 200) { st = ""; cl = "mid"; co = "#f59e0b"; }
-            else { st = "CHẬM"; cl = "bad"; co = "#ef4444"; }
-            updateUI(ping, st, cl, co);
-        };
-        img.onerror = () => {
-            if(done) return;
-            done = true; clearTimeout(timeout);
-            updateUI("ERR", "LỖI", "off", "#64748b");
-        };
-        img.src = "https://www.google.com/favicon.ico?d=" + Date.now();
-    }
-
-    btnPip.addEventListener('click', async () => {
-        try {
-            if (document.pictureInPictureElement) {
-                await document.exitPictureInPicture();
-            } else {
-                video.srcObject = pipCanvas.captureStream(30); 
-                await video.play();
-                await video.requestPictureInPicture();
-            }
-        } catch (e) { alert("Hãy click lại nút để kích hoạt PiP."); }
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    // Fix lỗi bằng cách chỉ định rõ corePath
+    const ffmpeg = createFFmpeg({ 
+        log: true,
+        corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
     });
 
-    setInterval(checkNetwork, 1000);
-    window.addEventListener('online', checkNetwork);
-    window.addEventListener('offline', () => updateUI("OFF", "NGOẠI TUYẾN", "off", "#64748b"));
-    checkNetwork();
-</script>
+    const uploader = document.getElementById('uploader');
+    const convertBtn = document.getElementById('convertBtn');
+    const status = document.getElementById('status');
+    const progress = document.getElementById('progress');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const fileNameText = document.getElementById('file-name');
 
+    // Khởi tạo thư viện
+    (async () => {
+        try {
+            await ffmpeg.load();
+            status.innerText = "Sẵn sàng chuyển đổi";
+            convertBtn.disabled = false;
+            convertBtn.innerText = "Chuyển đổi ngay";
+        } catch (e) {
+            status.innerText = "Lỗi tải thư viện. Hãy dùng Chrome/Edge.";
+            console.error(e);
+        }
+    })();
+
+    uploader.onchange = (e) => {
+        if (e.target.files[0]) fileNameText.innerText = e.target.files[0].name;
+    };
+
+    convertBtn.addEventListener('click', async () => {
+        if (!uploader.files[0]) return;
+        
+        const file = uploader.files[0];
+        convertBtn.disabled = true;
+        status.innerText = "Đang xử lý...";
+        
+        ffmpeg.setProgress(({ ratio }) => {
+            progress.style.width = (ratio * 100) + '%';
+        });
+
+        await ffmpeg.FS('writeFile', 'input.webm', await fetchFile(file));
+        await ffmpeg.run('-i', 'input.webm', 'output.mp3');
+        
+        const data = ffmpeg.FS('readFile', 'output.mp3');
+        const url = URL.createObjectURL(new Blob([data.buffer], { type: 'audio/mp3' }));
+        
+        downloadBtn.href = url;
+        downloadBtn.download = file.name.replace('.webm', '.mp3');
+        downloadBtn.style.display = 'block';
+        status.innerText = "Chuyển đổi thành công!";
+        convertBtn.disabled = false;
+    });
+</script>
 </body>
 </html>
